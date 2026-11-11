@@ -1,0 +1,14 @@
+patient_id,date,code,name
+P1,2026-04-28,R635,Abnormal weight gain
+P1,2026-05-19,R635,Abnormal weight gain
+P1,2026-06-17,R635,Abnormal weight gain
+P1,2026-08-08,R635,Abnormal weight gain
+P1,2026-09-02,R635,Abnormal weight gain
+P1,2026-10-07,R635,Abnormal weight gain
+P2,2024-06-04,R635,Abnormal weight gain
+P2,2024-06-17,R635,Abnormal weight gain
+P2,2025-09-06,R635,Abnormal weight gain
+P3,2026-07-29,E669,"Obesity, unspecified"
+P3,2026-09-01,E669,"Obesity, unspecified"
+P3,2026-10-28,E669,"Obesity, unspecified"
+P3,2026-11-25,E669,"Obesity, unspecified"

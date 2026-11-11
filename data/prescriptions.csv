@@ -1,0 +1,11 @@
+patient_id,date,drug,generic,dose,days
+P1,2026-04-28,Saxenda,liraglutide,0.6mg,21
+P1,2026-05-19,Saxenda,liraglutide,1.2mg,21
+P1,2026-06-17,Saxenda,liraglutide,1.8mg,28
+P1,2026-07-22,Saxenda,liraglutide,2.4mg,28
+P1,2026-09-02,Saxenda,liraglutide,2.4mg,28
+P1,2026-10-07,Saxenda,liraglutide,2.4mg,42
+P3,2026-07-29,Wegovy,semaglutide,0.25mg,1
+P3,2026-07-29,Wegovy,semaglutide,0.25mg,28
+P3,2026-09-01,Wegovy,semaglutide,0.5mg,56
+P3,2026-10-28,Wegovy,semaglutide,1.0mg,28
