@@ -310,6 +310,27 @@ def show(kind, body, title=None):
         f'background:transparent;color:#202124;font-family:\'Noto Sans Mono\',\'D2Coding\',monospace">{html.escape(str(body))}</pre></div>'))
 
 
+def show_conversation(messages, title="LLM에게 보낼 대화 기록"):
+    """대화 기록(messages 목록)을 한 줄씩 사람이 읽기 좋게 보여 준다."""
+    lines = []
+    for i, m in enumerate(messages, 1):
+        m = m if isinstance(m, dict) else m.model_dump(exclude_none=True)
+        role, content = m.get("role"), m.get("content") or ""
+        if role == "system":
+            lines.append(f"{i}줄  ⚙️ 시스템 프롬프트 ({len(content)}자)")
+        elif role == "user":
+            lines.append(f"{i}줄  👤 질문: {content[:120]}")
+        elif role == "assistant" and m.get("tool_calls"):
+            names = ", ".join(tc["function"]["name"] for tc in m["tool_calls"])
+            lines.append(f"{i}줄  🤖 LLM의 요청서: {names} (실행해 달라는 요청)")
+        elif role == "assistant":
+            lines.append(f"{i}줄  🤖 LLM의 답: {content[:120]}")
+        elif role == "tool":
+            body = " / ".join(content.splitlines()[1:3])
+            lines.append(f"{i}줄  🔧 도구 결과: {body[:120]} …")
+    show("code", "\n".join(lines), title=title)
+
+
 _INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inputs")
 NOTE_FILES = {"P2": "memo_P2.txt"}     # 초진 환자 P2의 오늘 의사 메모
 
