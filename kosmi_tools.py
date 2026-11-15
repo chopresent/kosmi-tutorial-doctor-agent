@@ -186,7 +186,7 @@ def get_patient_summary(ctx):
         lines.append("진단: 기록 없음")
     else:
         g = dx.groupby(["code", "name"]).agg(first=("date", "min"), last=("date", "max"), n=("date", "count")).reset_index()
-        lines.append("진단 (볼 수 있는 기록 안에서):")
+        lines.append("진단:")
         for _, r in g.sort_values("first").iterrows():
             lines.append(f"  - {r['code']} {r['name']} (첫 기록 {_d(r['first'])}, 마지막 {_d(r['last'])}, {r['n']}회) [기록]")
     visits = set().union(*[set(ctx.t[n]["date"]) for n in ("diagnoses", "prescriptions", "vitals", "notes")])
@@ -306,7 +306,7 @@ def get_questionnaire(ctx):
     last = q["date"].max()
     q = q[q["date"] == last]
     tag = f"[설문 {_d(last)}]"
-    lines = [ctx.header(), f"체중관리 문진표 작성일: {_d(last)} (볼 수 있는 것 중 가장 최근)"]
+    lines = [ctx.header(), f"체중관리 문진표 작성일: {_d(last)} (가장 최근)"]
     for _, r in q.iterrows():
         ans = r["answer"]
         if r["no"] in ("Q19", "Q20", "Q21"):

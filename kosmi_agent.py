@@ -2,8 +2,8 @@
 """
 kosmi_agent.py — 프롬프트·양식·에이전트 루프(참고 구현)·자동 점검
 
-노트북에서는 참가자가 run_agent()를 직접 만든다. 이 파일의 run_agent는
-정답 확인, 따라잡기, 마지막 채팅 화면에서 쓴다.
+노트북에서는 같은 루프를 my_agent()로 직접 보여 준다. 이 파일의 run_agent는
+강사 검증(run_all.py)에서 쓴다. show()는 출력의 종류(코드·LLM·도구·최종 산출물)를 색으로 구분한다.
 """
 import json
 import os
@@ -267,13 +267,49 @@ def check_output(ctx, output, trace, note=None):
 
 
 def print_check(res):
-    for name, ok, msg in res:
-        print(f"{'✅' if ok else '⚠️'} {name}: {msg}")
+    show("code", "\n".join(f"{'✅' if ok else '⚠️'} {name}: {msg}" for name, ok, msg in res), title="자동 점검")
 
 
 # ---------------------------------------------------------------------------
-# 5. 보기 좋게 출력하기, 실습 입력, 채팅 화면
+# 5. 보기 좋게 출력하기, 실습 입력
 # ---------------------------------------------------------------------------
+# 출력 상자: 색과 머리말로 "누가 만든 결과인가"를 구분한다 (노트북에서는 큰 글씨 HTML, 그 밖에서는 텍스트)
+BOX = {
+    "code":  ("#F1F3F4", "#80868B", "🧑‍💻 코드 실행 결과 · LLM 사용 안 함"),
+    "llm":   ("#E8F0FE", "#3B6FD8", "🤖 LLM"),
+    "tool":  ("#FEF3E2", "#E8912D", "🔧 도구 결과 · LLM이 요청 → 코드가 실행해 LLM에게 돌려줌"),
+    "final": ("#E6F4EA", "#34A853", "📄 최종 산출물 · LLM이 작성"),
+}
+FONT_PX = 16      # 상자 안 글씨 크기. 더 키우려면 ka.FONT_PX = 18
+
+
+def _in_notebook():
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()           # Colab: google.colab._shell.Shell, Jupyter: ZMQInteractiveShell
+        return shell is not None and type(shell).__name__ != "TerminalInteractiveShell"
+    except Exception:
+        return False
+
+
+def show(kind, body, title=None):
+    """kind: code(코드 실행) · llm(LLM 응답·요청) · tool(도구 결과) · final(최종 산출물)"""
+    bg, border, label = BOX[kind]
+    if kind in ("llm", "final"):
+        body = str(body).replace("**", "")      # LLM이 붙인 마크다운 굵게 표시는 상자에서 뺀다
+    head = label + (f"  —  {title}" if title else "")
+    if not _in_notebook():
+        print(f"──── {head} ────\n{body}\n")
+        return
+    import html
+    from IPython.display import HTML, display
+    display(HTML(
+        f'<div style="background:{bg};border-left:6px solid {border};border-radius:6px;padding:10px 14px;margin:6px 0;color:#202124">'
+        f'<div style="font-weight:700;font-size:{FONT_PX - 1}px;margin-bottom:6px">{html.escape(head)}</div>'
+        f'<pre style="white-space:pre-wrap;word-break:break-word;font-size:{FONT_PX}px;line-height:1.55;margin:0;'
+        f'background:transparent;color:#202124;font-family:\'Noto Sans Mono\',\'D2Coding\',monospace">{html.escape(str(body))}</pre></div>'))
+
+
 _INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inputs")
 NOTE_FILES = {"P2": "memo_P2.txt"}     # 초진 환자 P2의 오늘 의사 메모
 
@@ -286,9 +322,9 @@ def load_note(patient):
 def show_trace(trace, full=False):
     """도구 호출 기록. full=True면 도구 결과 전체를 보여준다."""
     for step, name, args, result in trace:
-        print(f"── [{step}] {name}({args or ''})")
-        body = result if full else "\n".join(result.splitlines()[1:6]) + ("\n   …" if len(result.splitlines()) > 6 else "")
-        print("   " + body.replace("\n", "\n   "))
+        lines = result.splitlines()
+        body = result if full else "\n".join(lines[1:6]) + ("\n…" if len(lines) > 6 else "")
+        show("tool", body, title=f"[{step}번째 호출] {name}")
 
 
 def usage_summary():
@@ -299,41 +335,3 @@ def usage_summary():
     for c in CALL_LOG:
         by[c[1]] = by.get(c[1], 0) + 1
     return f"이 세션에서 LLM 호출 {n}회 (모델별 {by}), 입력 {ti:,} 토큰, 출력 {to:,} 토큰. 무료 한도: 모델별 하루 500회."
-
-
-def launch_app(client, share=False):
-    """환자를 고르고 (초진이면 메모를 고쳐) 에이전트를 돌리는 채팅 화면 (Gradio)"""
-    import gradio as gr
-
-    choices = [f"{p} · {kt.SCENES[s]} · {desc}" for p, (s, desc) in kt.PATIENTS.items()]
-
-    def pick(choice):
-        return load_note(choice.split(" · ")[0]) or ""
-
-    def run(choice, note):
-        try:
-            ctx = kt.Context(choice.split(" · ")[0])
-            msgs = build_messages(ctx, note.strip() or None)
-            out, trace = run_agent(client, ctx, msgs, verbose=False)
-            log = "\n\n".join(f"**[{st}] {nm}**\n```\n{res}\n```" for st, nm, _, res in trace)
-            chk = "\n".join(f"{'✅' if ok else '⚠️'} {n}: {m}" for n, ok, m in check_output(ctx, out, trace, note))
-            return f"```\n{out}\n```", chk, log
-        except Exception as e:
-            return f"오류: {e}", "", ""
-
-    with gr.Blocks(title="비만클리닉 doctor agent") as demo:
-        gr.Markdown(f"### 비만클리닉 doctor agent · 오늘 {kt._d(kt.TODAY)} (합성 데이터)")
-        with gr.Row():
-            with gr.Column(scale=1):
-                ch = gr.Dropdown(choices, value=choices[0], label="오늘의 환자")
-                note = gr.Textbox(lines=8, label="오늘 의사 메모 (초진 환자 P2)")
-                btn = gr.Button("에이전트 실행", variant="primary")
-            with gr.Column(scale=2):
-                out = gr.Markdown(label="초안")
-                chk = gr.Markdown(label="자동 점검")
-                with gr.Accordion("도구 호출 기록", open=False):
-                    log = gr.Markdown()
-        ch.change(pick, ch, note)
-        btn.click(run, [ch, note], [out, chk, log])
-    demo.launch(share=share)
-    return demo
