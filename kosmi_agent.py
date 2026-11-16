@@ -5,6 +5,7 @@ kosmi_agent.py — 프롬프트·양식·에이전트 루프(참고 구현)·자
 노트북에서는 같은 루프를 my_agent()로 직접 보여 준다. 이 파일의 run_agent는
 강사 검증(run_all.py)에서 쓴다. show()는 출력의 종류(코드·LLM·도구·최종 산출물)를 색으로 구분한다.
 """
+import hashlib
 import json
 import os
 import re
@@ -31,7 +32,7 @@ TIMEOUT = 45        # 한 번의 호출이 이 초를 넘기면 다음 모델로
 LONG_TIMEOUT = 150  # 모든 모델이 느리면 마지막으로 이만큼 기다린다
 
 
-def chat(client, messages, tools=None, models=None, temperature=0.2):
+def _chat_live(client, messages, tools=None, models=None, temperature=0.2):
     """LLM 한 번 호출. 분당 한도(429)면 잠시 쉬고, 하루 한도나 응답 지연이면 다음 모델로 넘어간다.
     모든 모델이 느리면 첫 모델로 한 번 더, 더 길게 기다린다."""
     from openai import RateLimitError, APIStatusError, APITimeoutError
@@ -74,6 +75,84 @@ def chat(client, messages, tools=None, models=None, temperature=0.2):
                     continue
                 raise
     raise RuntimeError(f"모든 모델 호출 실패: {last}")
+
+
+# ---------------------------------------------------------------------------
+# 1-1. 녹화 재생 — API가 안 될 때 리허설에서 녹화한 실제 응답을 대신 쓴다
+#   ka.REPLAY = True  → API를 부르지 않고 녹화만 사용
+#   (기본) API 호출이 실패하면, 녹화가 있는 호출은 자동으로 녹화로 대신한다
+#   강사용: 환경 변수 KOSMI_RECORD=파일경로 로 노트북을 돌리면 실제 응답을 녹화한다
+# ---------------------------------------------------------------------------
+REPLAY = False
+REPLAY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "replay", "recorded.json")
+RECORD_FILE = os.environ.get("KOSMI_RECORD") or None
+_REPLAY_DB = None
+
+
+def _call_key(messages, tools, models):
+    """같은 대화 기록 + 같은 메뉴판 + 같은 모델 목록이면 같은 열쇠. (도구 결과는 늘 같으므로 재생이 이어진다)"""
+    norm = []
+    for m in messages:
+        m = m if isinstance(m, dict) else m.model_dump(exclude_none=True)
+        item = {"role": m.get("role"), "content": m.get("content") or ""}
+        if m.get("tool_calls"):        # 패키지 버전에 따라 달라지는 칸은 빼고 요청서의 핵심만
+            item["calls"] = [(tc["id"], tc["function"]["name"], tc["function"]["arguments"]) for tc in m["tool_calls"]]
+        if m.get("tool_call_id"):
+            item["call_id"] = m["tool_call_id"]
+        norm.append(item)
+    blob = json.dumps({"m": norm, "t": tools or [], "models": list(models)}, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:24]
+
+
+def _replay_db():
+    global _REPLAY_DB
+    if _REPLAY_DB is None:
+        try:
+            with open(REPLAY_FILE, encoding="utf-8") as f:
+                _REPLAY_DB = json.load(f)
+        except FileNotFoundError:
+            _REPLAY_DB = {}
+    return _REPLAY_DB
+
+
+def _from_recording(key):
+    from openai.types.chat import ChatCompletion
+    d = _replay_db().get(key)
+    if d is None:
+        raise RuntimeError("▶️ 녹화된 응답이 없습니다. 녹화는 노트북의 원래 코드·질문 그대로일 때만 맞습니다 "
+                           "(질문이나 코드를 바꾼 셀은 재생할 수 없음).")
+    CALL_LOG.append((time.time(), "녹화 재생", 0, 0))
+    print("▶️ 녹화된 응답을 재생합니다")
+    return ChatCompletion.model_validate(d)
+
+
+def _record(key, r):
+    db = {}
+    if os.path.exists(RECORD_FILE):
+        with open(RECORD_FILE, encoding="utf-8") as f:
+            db = json.load(f)
+    db[key] = r.model_dump()
+    os.makedirs(os.path.dirname(os.path.abspath(RECORD_FILE)), exist_ok=True)
+    with open(RECORD_FILE, "w", encoding="utf-8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def chat(client, messages, tools=None, models=None, temperature=0.2):
+    """LLM 한 번 호출 (노트북은 모두 이 함수를 씀). 실패하면 녹화로 대신한다."""
+    models = models or MODELS
+    key = _call_key(messages, tools, models)
+    if REPLAY:
+        return _from_recording(key)
+    try:
+        r = _chat_live(client, messages, tools=tools, models=models, temperature=temperature)
+    except Exception as e:
+        if key in _replay_db():
+            print(f"⚠️ API 호출 실패({type(e).__name__}) → 녹화된 응답으로 대신합니다.")
+            return _from_recording(key)
+        raise
+    if RECORD_FILE:
+        _record(key, r)
+    return r
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,9 @@
 | `kosmi_agent.py` | 모델 호출(한도 처리), 시스템 프롬프트·양식 3종, 에이전트 루프, 자동 점검, 출력 상자(show) |
 | `data/` | 합성 환자 3명의 표 7개 (아래) |
 | `inputs/` | 초진 환자 P2의 의사 메모 |
-| `notebooks/실습.ipynb` | 실습 노트북 |
+| `notebooks/실습.ipynb` | 실습 노트북 (섹션 0~8 + 9. 시간이 남으면: 선택 블록 7개) |
+| `notebooks/실습_결과포함.ipynb` | 실행 결과가 저장된 읽기용 노트북 (API가 안 될 때) |
+| `replay/recorded.json` | 녹화 재생용 실제 응답 (API가 안 될 때 `ka.REPLAY = True`) |
 | `figures/` | 에이전트 구조도, 도구 요청서 왕복, 에이전트 루프 그림 (슬라이드용 PNG) |
 
 ## 데이터 (`data/`, 모두 합성, 진료일은 모두 2026-11-25)
@@ -28,6 +30,9 @@
 | `questionnaire.csv` | patient_id, date, no, question, answer (체중관리 문진표 21문항) |
 | `notes.csv` | patient_id, date, section, text (초진기록 자유서술) |
 | `labs.csv` | patient_id, date, test, value, unit |
+
+## API가 안 될 때
+노트북 1번 섹션의 `ka.REPLAY = True` 셀을 켜면, 강의 전에 실제 Gemini로 녹화한 응답으로 끝까지 따라갈 수 있습니다(도구 실행·점검은 실제로 돎). 켜지 않아도 API 호출이 실패하면 녹화가 있는 셀은 자동으로 녹화로 대신합니다. 녹화는 원래 코드·질문 그대로일 때만 맞습니다.
 
 ## 모델
 기본은 Gemini 3.5 Flash-Lite(무료 등급: 분당 15회, 하루 500회), 하루 한도가 끝나면 3.1 Flash-Lite로 넘어갑니다.
