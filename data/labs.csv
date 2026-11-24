@@ -1,0 +1,19 @@
+patient_id,date,test,value,unit
+P2,2026-09-05,Total cholesterol,195,mg/dL
+P2,2026-09-05,Triglyceride,104,mg/dL
+P2,2026-09-05,HDL-C,58,mg/dL
+P2,2026-09-05,LDL-C,116,mg/dL
+P2,2026-09-05,Fasting glucose,100,mg/dL
+P2,2026-09-05,HbA1c,4.9,%
+P2,2026-09-05,AST,23,U/L
+P2,2026-09-05,ALT,25,U/L
+P2,2026-09-05,TSH,1.26,uIU/mL
+P3,2026-05-29,Total cholesterol,173,mg/dL
+P3,2026-05-29,Triglyceride,109,mg/dL
+P3,2026-05-29,HDL-C,28,mg/dL
+P3,2026-05-29,LDL-C,124,mg/dL
+P3,2026-05-29,Fasting glucose,114,mg/dL
+P3,2026-05-29,HbA1c,5.9,%
+P3,2026-05-29,AST,60,U/L
+P3,2026-05-29,ALT,39,U/L
+P3,2026-05-29,TSH,1.75,uIU/mL
